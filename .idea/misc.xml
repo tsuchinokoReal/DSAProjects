@@ -3,7 +3,8 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.9 (DSAProjects)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.9 (DSAProjects)" project-jdk-type="Python SDK">
+  <component name="ExternalStorageConfigurationManager" enabled="true" />
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_23">
     <output url="file://$PROJECT_DIR$/out" />
   </component>
 </project>
