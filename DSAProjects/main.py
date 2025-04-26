@@ -1,3 +1,4 @@
+#011975117
 import csv
 import datetime
 from HashTable import *
@@ -13,21 +14,21 @@ distances = []
 #HashTable
 parsed_packages = HashTable()
 
+#retrieves distance between two locations using the distance matrix. time complexity = O(1)
+def get_distance(truck_address, package_address):
+    try:
+        distance = distances[truck_address][package_address]
+        if distance == '' or distance is None:
+            distance = distances[package_address][truck_address]
+        return float(distance)
+    except Exception as e:
+        print(f"Error: {e}")
 
 #hashtable lookup by ID. time complexity = O(1)
 def lookup(id):
     return parsed_packages.search(id)
 
-def load_addresses():
-    with open("address_file.csv", encoding='utf-8-sig') as f:
-        reader = csv.reader(f)
-        for row in reader:
-            index = int(row[0])
-            address = row[2]
-            addressDict[address] = index
-            reverseAddressDict[index] = address
-
-#parse file and add to dict. Time complexity: O(N) where n is the number of rows
+#parse file and add to hash table. Time complexity: O(N) where n is the number of rows
 def load_package():
     try:
         with open('package_file.csv', encoding='utf-8-sig') as f:
@@ -52,7 +53,17 @@ def load_package():
         print(f"Error parsing packages: {e}")
         return None
 
-    #parse data from the csv file. Time-complexity: O(N) where n is the number of rows
+#reads the address file and builds dictionaries for faster lookup. time complexity = O(N)
+def load_addresses():
+    with open("address_file.csv", encoding='utf-8-sig') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            index = int(row[0])
+            address = row[2]
+            addressDict[address] = index
+            reverseAddressDict[index] = address
+
+#loads the distance matrix from file into memory. Time-complexity: O(N) where n is the number of rows
 def read_distance():
     with open('distance_data.csv', 'r') as f:
         reader = csv.reader(f)
@@ -60,15 +71,14 @@ def read_distance():
             distances.append(row)
     return distances
 
-
-#finding the best route for trucks
+#finding the best route for trucks. time complexity: O(N^2) - greedy algorithm loop through all unvisited packages
 def best_route(truck):
     unvisited = truck.packages.copy()
     route = []
     current_address = truck.address
 
     while unvisited:
-        # Find the closest package to current address
+        #find the closest package to current address
         nearest_package_id = min(unvisited, key=lambda pid: get_distance(current_address, lookup(pid).address))
         nearest_package = lookup(nearest_package_id)
         route.append(nearest_package_id)
@@ -77,20 +87,12 @@ def best_route(truck):
 
     return route
 
-#retrieves distance between two locations using the distance matrix. time complexity = O(1)
-def get_distance(truck_address, package_address):
-    try:
-        distance = distances[truck_address][package_address]
-        if distance == '' or distance is None:
-            distance = distances[package_address][truck_address]
-        return float(distance)
-    except Exception as e:
-        print(f"Error: {e}")
-
+#initialization
 load_addresses()
 parsedPackages = load_package()
 distanceData = read_distance()
 
+#simulates package delivery by a truck using its route. time complexity = O(N^2)
 def init(truck):
     route = best_route(truck)
     current_address = truck.address
@@ -98,10 +100,10 @@ def init(truck):
     for packageID in route:
         package = lookup(packageID)
         if package:
-            # Dynamic reroute for package 9 at 10:20 AM
+            #dynamic reroute for package 9 at 10:20 AM
             if truck.time >= datetime.timedelta(hours=10, minutes=20) and package.id == '9':
                 package.address = addressDict["410 S State St"]
-                # Recalculate the route from current package forward
+                #recalculate the route
                 remaining_packages = [pid for pid in route[route.index(packageID):] if pid != package.id]
                 new_truck_state = Truck(remaining_packages, current_address, truck.miles, truck.time, truck.truckID)
                 route = [package.id] + best_route(new_truck_state)
@@ -112,10 +114,9 @@ def init(truck):
             print(f"Truck {truck.truckID} delivered package {package.id} at {truck.time}")
 
             current_address = package.address
-            package.time_delivered = truck.time
+            package.delivered = truck.time
             package.truckID = truck.truckID
 
-    # Return to hub
     hub = addressDict["4001 South 700 East"]
     distance_to_hub = get_distance(current_address, hub)
     truck.miles += distance_to_hub
@@ -165,27 +166,30 @@ def sort_packages(parsed_packages, trucks):
     except Exception as e:
         print(f"Exception: {e}")
 
+#add trucks
 trucks = [None, truck1, truck2, truck3]
 
+#inits and executes delivery sim for all trucks. time complexity = O(3N^2) => O(N^2) - because it calls init() for each truck
 def run():
     init(truck1)
     init(truck2)
     init(truck3)
 
+#cli for package status by time, waits for user input. time complexity = O(N) for each listing in option 2
 def interface():
-    print('Package Parcel Delivery Service')
-    print('**********************')
+    print('Delivery Summary')
+    print('********************')
     total_miles = round(truck1.miles + truck2.miles + truck3.miles, 2)
     print(f"Route completed in: {total_miles} miles")
     print(f"Truck 1 miles: {truck1.miles}")
     print(f"Truck 2 miles: {truck2.miles}")
     print(f"Truck 3 miles: {truck3.miles}")
-    print('**********************')
+    print('********************')
 
     while True:
         print("\nEnter a command (1-3):")
-        print("1. Display specific package")
-        print("2. Display all package status")
+        print("1. Display a specific package")
+        print("2. Display the status of ALL packages")
         print("3. Exit")
 
         try:
@@ -200,7 +204,7 @@ def interface():
             h, m = map(int, timestamp.split(':'))
             user_time = datetime.timedelta(hours=h, minutes=m)
 
-            # fetch package
+            #fetch package
             temp_storage = lookup(packageId)
             address = reverseAddressDict.get(temp_storage.address, "Unknown")
             if temp_storage.id == '9':
@@ -212,16 +216,16 @@ def interface():
                 3: datetime.timedelta(hours=10, minutes=10)
             }.get(temp_storage.truckID, datetime.timedelta(0))
 
-            # determine status
+            #determine status
             if user_time <= truck_departure:
                 status = "at hub"
                 delivered_time = "--"
-            elif not temp_storage.time_delivered or user_time < temp_storage.time_delivered:
+            elif not temp_storage.delivered or user_time < temp_storage.delivered:
                 status = "en route"
                 delivered_time = "--"
             else:
                 status = "delivered"
-                delivered_time = str(temp_storage.time_delivered)
+                delivered_time = str(temp_storage.delivered)
 
             print("\nPackage Details:")
             print("-" * 70)
@@ -258,14 +262,19 @@ def interface():
                 if query_time <= truck_departure:
                     status = "at hub"
                     delivered_time = "--"
-                elif not Package.time_delivered or query_time < Package.time_delivered:
+                elif not Package.delivered or query_time < Package.delivered:
                     status = "en route"
                     delivered_time = "--"
                 else:
                     status = "delivered"
-                    delivered_time = str(Package.time_delivered)
+                    delivered_time = str(Package.delivered)
 
-                print(f"{Package.id:<5} {address:<35} {str(truck_departure):<15} {status:<12} {str(Package.delivery_time):<12} {delivered_time:<15} {Package.truckID:<6}")
+                delivery_time = str(Package.delivery_time) if Package.delivery_time else "--"
+                delivered_time_str = str(delivered_time) if delivered_time and delivered_time != "--" else "--"
+                truck_id = str(Package.truckID) if Package.truckID is not None else "--"
+                if not hasattr(Package, 'id') or Package.id == 'id':
+                    continue
+                print(f"{Package.id:<5} {address:<35} {str(truck_departure):<15} {status:<12} {delivery_time:<12} {delivered_time_str:<15} {truck_id:<6}")
 
             print("-" * 110)
 
